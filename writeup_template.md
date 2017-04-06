@@ -3,113 +3,76 @@
 
 ---
 
-**Advanced Lane Finding Project**
+**Vehicle Detection Project**
 
 The goals / steps of this project are the following:
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+* Perform a Histogram of Oriented Gradients (HOG) feature extraction on a labeled training set of images and train a classifier Linear SVM classifier
+* Optionally, you can also apply a color transform and append binned color features, as well as histograms of color, to your HOG feature vector. 
+* Note: for those first two steps don't forget to normalize your features and randomize a selection for training and testing.
+* Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
+* Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
+* Estimate a bounding box for vehicles detected.
 
-[//]: # (Image References)
-
-[image1]: ./examples/undistort_output.png "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
-
-## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
+## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
 ###Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
 
 ---
 ###Writeup / README
 
-####1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
+####1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Vehicle-Detection/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
 
 You're reading it!
-###Camera Calibration
 
-####1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
+###Histogram of Oriented Gradients (HOG)
 
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
+####1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+The function which extracts HOG features is defined in the second cell: get_hog_features. It calls skimage's hog function. It is called in the extract_features function, a bit later. That function changes the color space and then concatenates the spacial, histogram, and hog features together, based on the specified parameters. The same thing is done in single_img_feautures, which is the next function. 
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+Those functions are used to extract the training features in the fourth cell. Later, when I run my sliding window search, I use the single_img_features fuction to retrieve just one windows's hog features.
 
-![alt text][image1]
+An example of a the hog image of a car and the hog image of not a car are give in hog_car_image_0/1/2.jpg and hog_notcar_image_0/1/2.jpg
 
-###Pipeline (single images)
+####2. Explain how you settled on your final choice of HOG parameters.
 
-####1. Provide an example of a distortion-corrected image.
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
-####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+I tried various combinations of parameters and after a few trials, I found that color_space = 'HLS', spatial_size = (32,32), hist_bins = 32, orient = 9, pix_per_cell = 8, cell_per_block = 2, hog_channel='ALL' gave good results. You can see an example hog_image in hog_car_image_0/1/2.jpg and hog_notcar_image_0/1/2.jpg. Basically, I was looking at the larger image and trying to make sure that there was a noticable difference between the areas with and without cars. Really, this step was more art than science, in the end.
 
-![alt text][image3]
+####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+The classifier runs in the 6th Cell. I trained a linear SVM with a very low C value, 0.0001, to reduce overfiting. I did use both HOG and color features to get an accuracy in the test set of 99%, and I was happy with that. That being said, I'm not sure if this is sufficent; I don't really check Kappa, precision, or recall, and those statistics would be more telling than just a simple accuracy metric. For an example of my feature vector, scaled and unscaled, please see "plot_feature.png"
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
 
-```
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
 
-```
-This resulted in the following source and destination points:
+###Sliding Window Search
 
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+I used three sizes of window: 64, 96, and 112, and I only searched roughly the bottom half of the image, between y values of 360 and 630. This is shown in the get_windows function, cell 16. Please also refer to the images, small_windows.jpg, med_windows.jpg, and big_windows.jpg for examples. 
 
-![alt text][image4]
+####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
-
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
-
-![alt text][image5]
-
-####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
-
-I did this in lines # through # in my code in `my_other_file.py`
-
-####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
-
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
-
-![alt text][image6]
-
+In order to check to see tha tmy pipeline was working, I tested the classifier on the windows I just drew. This is done with the search_windows function. The output is shown in small_windows_cars.jpg, med_windows_cars.jpg, and big_windows_cars.jpg. I was happy with the accuracty my classifier achieved.
 ---
 
-###Pipeline (video)
+### Video Implementation
 
-####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
 
-Here's a [link to my video result](./project_video.mp4)
+My videos are available in the github at "test_video_output.mpeg" and "project_video_output.mpeg"
+
+####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
+
+I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions. In get_heatmap(), I required a minimum of three false positives to be reported, as well as at least 5% of the total detections. I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap. As opposed to assuming each blob corresponded to a vehicle, I further filtered the heatmap in the function filter_labels. I only reported labels with dimension larger than 10x10, and with a mean squared certainty greater thatn 5%, and a maximum certain greater than 10%.
+
+You can see my pipeline in the following four images for test image 1:
+"final_windows.jpg" shows the windows which have been labeled as "car"
+"final_heatmap.jpg" shows the heatmap generated from those windows
+"final_label.jpg" is the unfiltered labels from the scikit label function
+"final_output.jpg" is the filtered labels drawn on the image.
+
+This does not show the averageing which I also do in the video. Each frame is a wieghted average of alpha times the current frame plus (1-alpha) times the previous frame. I found alpha = 0.8 gave greater stability in the video tests.
+
 
 ---
 
@@ -117,5 +80,7 @@ Here's a [link to my video result](./project_video.mp4)
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+I have both false positive and false negatives in my implementation. It was very hard to find a good threshold value that would filter out false positives that would not also filter out actual cars! Notably, I found that color mattered a lot. Even in "final_windows.jpg", it is clear that my classifier is incredibly confident that the black car is a car, and less confident that the white car is a car. I think this is due to in some part to the fact that the white car looks awfully similar to the sky! (There are sky pictures in the notcar data set). I did some resarch, and found that I'm not the only one with this problem. Tesla had a crash where the car thought a large semi truck was just the sky: [https://www.nytimes.com/2017/01/19/business/tesla-model-s-autopilot-fatal-crash.html?_r=0]. Another issue I have is that shadows and trees and things can easily be miscontrued for some part of a car.
 
+Response to First Submission Review:
+Chaning the color space from HLS to YCrCb prompted a huge increase in the final box stability, even when omitting the color histogram. There's a few places still where I get a false positives, but they're quite few, and I successfully track the vehicles the entire time. Thanks for the tip.
